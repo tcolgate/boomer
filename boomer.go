@@ -222,13 +222,13 @@ func runTasksForTest(args TaskArgs, tasks ...*Task) {
 
 // Run accepts a slice of Task and connects to a locust master.
 // It's a convenience function to use the defaultBoomer.
-func Run(args TaskArgs, tasks ...*Task) {
+func Run(tasks ...*Task) {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
 	if runTasks != "" {
-		runTasksForTest(args, tasks...)
+		runTasksForTest(TaskArgs{Host: host}, tasks...)
 		return
 	}
 

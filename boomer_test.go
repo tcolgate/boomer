@@ -291,7 +291,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 
-	go Run(TaskArgs{}, taskA)
+	go Run(taskA)
 	time.Sleep(20 * time.Millisecond)
 
 	server.toClient <- newMessage("hatch", map[string]interface{}{
