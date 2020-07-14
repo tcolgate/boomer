@@ -333,11 +333,20 @@ func (r *slaveRunner) close() {
 }
 
 func (r *slaveRunner) onHatchMessage(msg *message) {
+	log.Printf("msg.Data: %#v", msg.Data)
 	r.client.sendChannel() <- newMessage("hatching", nil, r.nodeID)
 	var target = host
-	ti, ok := msg.Data["host"]
-	if t, ok := ti.(string); ok {
-		target = t
+	if ti, ok := msg.Data["host"]; ok {
+		switch t := ti.(type) {
+		case string:
+			target = t
+		case []uint8:
+			bs := make([]byte, len(t))
+			for i := range t {
+				bs[i] = t[i]
+			}
+			target = string(bs)
+		}
 	}
 
 	rate, _ := msg.Data["hatch_rate"]
