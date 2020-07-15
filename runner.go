@@ -47,6 +47,7 @@ type runner struct {
 	closeChan chan bool
 
 	outputs []Output
+	running int32
 }
 
 // safeRun runs fn and recovers from unexpected panics.
@@ -138,6 +139,13 @@ func (r *runner) spawnWorkers(args TaskArgs, spawnCount int, quit chan bool, hat
 		default:
 			atomic.AddInt32(&r.numClients, 1)
 			go func() {
+				atomic.AddInt32(&r.running, 1)
+				defer func() {
+					atomic.AddInt32(&r.running, -1)
+					log.Println("worker quit")
+					log.Println("workers", atomic.LoadInt32(&r.running))
+				}()
+				log.Println("workers", atomic.LoadInt32(&r.running))
 				for {
 					task := r.getTask()
 					select {
@@ -204,7 +212,7 @@ func (r *runner) startHatching(args TaskArgs, spawnCount int, hatchRate float64,
 	r.stopChan = make(chan bool)
 
 	r.hatchRate = hatchRate
-	r.numClients = 0
+	atomic.SwapInt32(&r.numClients, 0)
 
 	go r.spawnWorkers(args, spawnCount, r.stopChan, hatchCompleteFunc)
 }
@@ -256,7 +264,7 @@ func (r *localRunner) run() {
 		for {
 			select {
 			case data := <-r.stats.messageToRunnerChan:
-				data["user_count"] = r.numClients
+				data["user_count"] = atomic.LoadInt32(&r.numClients)
 				r.outputOnEevent(data)
 			case <-r.closeChan:
 				Events.Publish("boomer:quit")
@@ -311,7 +319,7 @@ func newSlaveRunner(masterHost string, masterPort int, tasks []*Task, rateLimite
 
 func (r *slaveRunner) hatchComplete() {
 	data := make(map[string]interface{})
-	data["count"] = r.numClients
+	data["count"] = atomic.LoadInt32(&r.numClients)
 	r.client.sendChannel() <- newMessage("hatch_complete", data, r.nodeID)
 	r.state = stateRunning
 }
@@ -458,7 +466,7 @@ func (r *slaveRunner) run() {
 				if r.state == stateInit || r.state == stateStopped {
 					continue
 				}
-				data["user_count"] = r.numClients
+				data["user_count"] = atomic.LoadInt32(&r.numClients)
 				r.client.sendChannel() <- newMessage("stats", data, r.nodeID)
 				r.outputOnEevent(data)
 			case <-r.closeChan:
